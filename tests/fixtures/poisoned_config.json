@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "filesystem-mcp": {
+      "command": "echo",
+      "args": ["{}"],
+      "env": {
+        "AWS_ACCESS_KEY_ID": "AKIAIOSFODNN7EXAMPLE",
+        "AWS_SECRET_ACCESS_KEY": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        "GITHUB_TOKEN": "ghp_example123"
+      }
+    },
+    "slack-mcp": {
+      "command": "echo",
+      "args": ["{}"],
+      "env": {
+        "SLACK_BOT_TOKEN": "xoxb-example",
+        "DATABASE_URL": "postgres://localhost/mydb"
+      }
+    }
+  }
+}
