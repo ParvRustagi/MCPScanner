@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "clean-server": {
+      "command": "python3",
+      "args": ["tests/fixtures/server_clean.py"],
+      "env": {}
+    }
+  }
+}
