@@ -21,6 +21,7 @@ SEVERITY_COLORS = {
 
 
 @click.command(name="mcpscan")
+@click.version_option("0.1.0", "--version", "-V")
 @click.option("--target", "-t", required=True, help="Path to MCP config JSON or live server URL")
 @click.option("--live", "-l", is_flag=True, default=False, help="Enable live attacker LLM probe")
 @click.option("--attacker", default="anthropic", show_default=True,
