@@ -1,5 +1,9 @@
 # MCPScanner
 
+![CI](https://github.com/ParvRustagi/MCPScanner/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 **Agentic security scanner for Model Context Protocol servers.**
 
 MCPScanner points an attacker LLM at your MCP server and probes it for vulnerabilities that arise specifically when a model has access to tools — the gap between "said something bad" and "called `delete_file`."
@@ -35,6 +39,33 @@ Audits the permissions each MCP server requests against what it actually needs. 
 
 ### Live attacker LLM probe
 Fires a live attacker LLM at your running MCP server with adversarial prompts designed to coerce unsafe tool calls. A judge LLM evaluates each result and scores the finding.
+
+---
+
+## Static vs Live modules
+
+MCPScanner has two operating modes. Most users only need the static mode.
+
+| | Static modules | Live probe (`--live`) |
+|---|---|---|
+| **What it does** | Pattern-matches tool schemas for known attack patterns | Fires a real LLM at your server with adversarial prompts |
+| **Speed** | Instant | Seconds per prompt |
+| **API key required** | No | Yes |
+| **Modules** | description_poison, schema_injection, scope_creep, privilege_bleed | live_probe |
+| **Good for** | Pre-commit hooks, CI/CD, quick audits | Deeper validation of a running server |
+
+**Static scan — no key needed:**
+```bash
+mcpscan --target ./claude_desktop_config.json
+```
+
+**Live probe — API key required:**
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+mcpscan --target http://localhost:8000 --live
+```
+
+The live probe uses one LLM as the attacker and a second as the judge. The attacker tries to coerce unsafe tool calls; the judge scores whether anything dangerous happened.
 
 ---
 
