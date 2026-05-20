@@ -6,6 +6,7 @@ from mcpscanner.modules import (
     SchemaInjectionModule,
     ScopeCreepModule,
     PrivilegeBleedModule,
+    ToolChainAbuseModule,
 )
 
 
@@ -141,3 +142,65 @@ class TestPrivilegeBleed:
         net_tool = make_tool(name="http_get", server="http-client", description="Make HTTP requests")
         findings = PrivilegeBleedModule().run([shell_tool, net_tool])
         assert any("shell" in f.title.lower() or "network" in f.title.lower() for f in findings)
+
+
+# ── Tool Chain Abuse ──────────────────────────────────────────────────────────
+
+class TestToolChainAbuse:
+    def test_credential_theft_chain(self):
+        t1 = make_tool(name="get_secret", server="vault", description="Retrieves a secret from the vault")
+        t2 = make_tool(name="send_email", server="vault", description="Sends an email to a recipient")
+        findings = ToolChainAbuseModule().run([t1, t2])
+        assert findings
+        assert any(f.severity == "critical" for f in findings)
+        assert any("credential-theft" in f.title for f in findings)
+
+    def test_scorched_earth_chain(self):
+        t1 = make_tool(name="execute", server="ops", description="Executes a shell command")
+        t2 = make_tool(name="delete", server="ops", description="Deletes a file or directory")
+        findings = ToolChainAbuseModule().run([t1, t2])
+        assert any("scorched-earth" in f.title for f in findings)
+        assert any(f.severity == "critical" for f in findings)
+
+    def test_recon_exfil_chain(self):
+        t1 = make_tool(name="list_files", server="fs", description="Lists files in a directory")
+        t2 = make_tool(name="post_message", server="fs", description="Posts a message to an external webhook")
+        findings = ToolChainAbuseModule().run([t1, t2])
+        assert any("recon-exfil" in f.title for f in findings)
+
+    def test_full_recon_exfil_3step(self):
+        t1 = make_tool(name="list_files", server="fs", description="Lists files in a directory")
+        t2 = make_tool(name="read_file", server="fs", description="Reads a file from disk")
+        t3 = make_tool(name="send_email", server="fs", description="Sends data to an external email address")
+        findings = ToolChainAbuseModule().run([t1, t2, t3])
+        assert any("full-recon-exfil" in f.title for f in findings)
+        assert any(f.severity == "critical" for f in findings)
+
+    def test_cross_server_3step(self):
+        t1 = make_tool(name="list_files", server="filesystem", description="Lists files")
+        t2 = make_tool(name="read_file", server="filesystem", description="Reads a file")
+        t3 = make_tool(name="send_email", server="mailer", description="Sends an email externally")
+        findings = ToolChainAbuseModule().run([t1, t2, t3])
+        assert any("full-recon-exfil" in f.title for f in findings)
+        # cross-server 3-step should be flagged
+        assert any("→" in f.server for f in findings)
+
+    def test_cross_server_2step_not_flagged(self):
+        # 2-step cross-server is PrivilegeBleed's domain — tool_chain_abuse should skip it
+        t1 = make_tool(name="read_file", server="filesystem", description="Reads a file")
+        t2 = make_tool(name="send_email", server="mailer", description="Sends an email")
+        findings = ToolChainAbuseModule().run([t1, t2])
+        two_step = [f for f in findings if f.module == "tool_chain_abuse" and "|" in f.tool_name and f.tool_name.count("|") == 1]
+        # None of these should be cross-server 2-step
+        assert not any("→" in f.server for f in two_step)
+
+    def test_clean_tools_no_findings(self):
+        t1 = make_tool(name="get_weather", server="weather", description="Returns current weather for a city")
+        t2 = make_tool(name="format_date", server="weather", description="Formats a date string")
+        findings = ToolChainAbuseModule().run([t1, t2])
+        assert not findings
+
+    def test_single_tool_no_findings(self):
+        t = make_tool(name="get_weather", server="weather", description="Returns weather data")
+        findings = ToolChainAbuseModule().run([t])
+        assert not findings

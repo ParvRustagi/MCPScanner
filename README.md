@@ -34,6 +34,9 @@ Scans parameter definitions, enum values, and field descriptions for injected in
 ### Privilege bleed
 When an agent connects to multiple MCP servers, analyzes whether outputs from one server can influence tool calls on another — cross-server lateral movement at the prompt level.
 
+### Tool chain abuse
+Detects dangerous multi-step tool combinations within a server (and across servers for 3-step chains). Classifies each tool into capability categories — READ, CREDENTIAL, ENUMERATE, EXECUTE, DESTROY, EXFILTRATE — then checks for combinations like `get_secret → send_email` (credential-theft), `execute → delete` (scorched-earth), or `list_files → read_file → send_email` (full recon-exfil). Cross-server 3-step chains are in scope here; 2-step cross-server pairs are handled by Privilege Bleed.
+
 ### Scope creep audit
 Audits the permissions each MCP server requests against what it actually needs. A weather tool requesting filesystem and shell access fails this check. Produces a minimal-permission recommendation alongside each finding.
 
@@ -357,7 +360,7 @@ Contributions welcome. To add a new attack module:
 ## Roadmap
 
 - [ ] OAuth scope graph analysis
-- [ ] Tool chain abuse detection (multi-step privilege escalation)
+- [x] Tool chain abuse detection (multi-step privilege escalation)
 - [ ] Web UI (scan history, finding triage, team sharing)
 - [ ] VS Code extension (scan MCP configs on save)
 - [ ] LangGraph / CrewAI / AutoGen config support
