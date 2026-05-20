@@ -19,6 +19,8 @@ SEVERITY_COLORS = {
     "low": "blue",
 }
 
+SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
 
 @click.command(name="mcpscan")
 @click.version_option("0.1.0", "--version", "-V")
@@ -32,7 +34,10 @@ SEVERITY_COLORS = {
 @click.option("--output", "-o", default=None,
               help="Output file path (.json, .md, or 'sarif'). Omit for terminal output.")
 @click.option("--quiet", "-q", is_flag=True, default=False, help="Suppress rich output, print only findings")
-def main(target: str, live: bool, attacker: str, modules: str | None, output: str | None, quiet: bool) -> None:
+@click.option("--fail-on", default=None, show_default=True,
+              type=click.Choice(["critical", "high", "medium", "low"], case_sensitive=False),
+              help="Exit with code 1 if any finding at or above this severity is found")
+def main(target: str, live: bool, attacker: str, modules: str | None, output: str | None, quiet: bool, fail_on: str | None) -> None:
     """MCPScanner — agentic security scanner for MCP servers."""
     module_names: list[str] | None = None
     if modules:
@@ -68,13 +73,18 @@ def main(target: str, live: bool, attacker: str, modules: str | None, output: st
         _write_output(report, output)
         if not quiet:
             console.print(f"\n[green]Report written to {output}[/green]")
-        return
-
-    if quiet:
+    elif quiet:
         print(report.summary())
-        return
+    else:
+        _print_rich_report(report)
 
-    _print_rich_report(report)
+    if fail_on:
+        threshold = SEVERITY_ORDER[fail_on]
+        triggered = [f for f in report.findings if SEVERITY_ORDER.get(f.severity, 9) <= threshold]
+        if triggered:
+            if not quiet:
+                console.print(f"[red]Exiting with code 1 — {len(triggered)} finding(s) at or above '{fail_on}' severity.[/red]")
+            sys.exit(1)
 
 
 def _write_output(report, path: str) -> None:
@@ -103,8 +113,7 @@ def _print_rich_report(report) -> None:
         console.print("[green]No findings.[/green]")
         return
 
-    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-    sorted_findings = sorted(report.findings, key=lambda f: severity_order.get(f.severity, 9))
+    sorted_findings = sorted(report.findings, key=lambda f: SEVERITY_ORDER.get(f.severity, 9))
 
     table = Table(box=box.ROUNDED, show_header=True, header_style="bold")
     table.add_column("Sev", width=8)

@@ -152,3 +152,25 @@ class TestCLI:
     def test_cli_unknown_module_exits_nonzero(self):
         result = self._run("--target", POISONED_CFG, "--modules", "doesnt_exist")
         assert result.returncode != 0
+
+    def test_fail_on_exits_one_when_triggered(self):
+        result = self._run("--target", POISONED_CFG, "--fail-on", "high", "--quiet")
+        assert result.returncode == 1
+
+    def test_fail_on_exits_zero_when_clean(self):
+        result = self._run("--target", CLEAN_CFG, "--fail-on", "high", "--quiet")
+        assert result.returncode == 0
+
+    def test_fail_on_critical_passes_when_only_high(self):
+        # Only medium findings — --fail-on critical should not trigger
+        result = self._run(
+            "--target", POISONED_CFG,
+            "--modules", "scope_creep",
+            "--fail-on", "critical",
+            "--quiet",
+        )
+        assert result.returncode == 0
+
+    def test_fail_on_prints_message(self):
+        result = self._run("--target", POISONED_CFG, "--fail-on", "high")
+        assert "Exiting with code 1" in result.stdout or "Exiting with code 1" in result.stderr

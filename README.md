@@ -119,6 +119,18 @@ mcpscan --target ./config.json --output report.json
 mcpscan --target ./config.json --output report.md
 ```
 
+**Fail CI if high or critical findings are found:**
+
+```bash
+mcpscan --target ./config.json --fail-on high
+```
+
+Exits with code `1` if any finding at or above the given severity is detected. Works with any output format — combine with `--output` to save the report and still gate the pipeline:
+
+```bash
+mcpscan --target ./config.json --output report.sarif --fail-on high
+```
+
 ---
 
 ## Python library
@@ -291,10 +303,11 @@ GitHub Actions example:
 
 ```yaml
 - name: Run MCPScanner
-  run: mcpscan --target ./config.json --output report.sarif
+  run: mcpscan --target ./config.json --output report.sarif --fail-on high
 
 - name: Upload SARIF
   uses: github/codeql-action/upload-sarif@v3
+  if: always()
   with:
     sarif_file: report.sarif
 ```
