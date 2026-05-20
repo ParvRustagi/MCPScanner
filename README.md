@@ -54,7 +54,7 @@ MCPScanner has two operating modes. Most users only need the static mode.
 | **What it does** | Pattern-matches tool schemas for known attack patterns | Fires a real LLM at your server with adversarial prompts |
 | **Speed** | Instant | Seconds per prompt |
 | **API key required** | No | Yes |
-| **Modules** | description_poison, schema_injection, scope_creep, privilege_bleed | live_probe |
+| **Modules** | description_poison, schema_injection, scope_creep, privilege_bleed, tool_chain_abuse | live_probe |
 | **Good for** | Pre-commit hooks, CI/CD, quick audits | Deeper validation of a running server |
 
 **Static scan — no key needed:**
@@ -193,7 +193,7 @@ Each finding includes:
 | `detail` | Full description of the vulnerability |
 | `evidence` | The specific schema text or probe/response pair |
 | `recommendation` | Concrete remediation guidance |
-| `confidence` | Judge LLM confidence score (live probe only) |
+| `confidence` | Confidence score — judge LLM score for live probe, pattern match confidence for tool chain abuse |
 
 Findings with confidence below threshold are marked `needs_review` rather than surfaced as confirmed vulnerabilities.
 
@@ -227,6 +227,14 @@ Servers: 3   Tools: 14   Findings: 4
             github/create_issue in observed tool chain.
   Recommendation: Sanitize tool outputs before passing across server
                   boundaries. Treat cross-server data as untrusted input.
+
+[CRITICAL] Dangerous tool chain: full-recon-exfil (filesystem-mcp)
+  Evidence: Chain: full-recon-exfil (3-step, same-server)
+            Step 1 [ENUMERATE] list_files — "Lists files in a directory"
+            Step 2 [READ]      read_file  — "Reads the contents of a file"
+            Step 3 [EXFILTRATE] send_webhook — "Posts data to a webhook URL"
+  Recommendation: Audit whether enumerate, read, and outbound-write
+                  capabilities need to coexist in a single agent session.
 ```
 
 ---
@@ -332,6 +340,7 @@ Config / live server
   ├── Schema injection        (static)                         │
   ├── Scope creep audit       (static)                         │
   ├── Privilege bleed         (static + graph analysis)        │
+  ├── Tool chain abuse        (static + chain analysis)        │
   └── Live attacker LLM probe (dynamic)                        │
                                                                │
        ▼                                                        │
@@ -342,7 +351,7 @@ Config / live server
   Report (JSON / Markdown / SARIF)
 ```
 
-Static modules (description poisoning, schema injection, scope creep, privilege bleed) are deterministic — no LLM required, fast, and suitable for pre-commit hooks. The live probe module fires a real attacker LLM and uses a separate judge LLM to evaluate results.
+Static modules (description poisoning, schema injection, scope creep, privilege bleed, tool chain abuse) are deterministic — no LLM required, fast, and suitable for pre-commit hooks. The live probe module fires a real attacker LLM and uses a separate judge LLM to evaluate results.
 
 ---
 
