@@ -272,6 +272,50 @@ mcpscan --target ~/Library/Application\ Support/Claude/claude_desktop_config.jso
 mcpscan --target http://localhost:8000 --live --attacker anthropic
 ```
 
+### 4. Batch scan — real MCP servers
+
+```bash
+python3 batch_scan.py
+```
+
+Scans 15 real, no-account MCP servers concurrently (official Anthropic reference servers + community packages) and prints a combined findings table. No API key needed.
+
+#### Real-world scan results
+
+Tested against 15 servers from npm — 13 connected, 49 tools scanned:
+
+| Server | Tools | Critical | High | Medium | Low |
+|---|---|---|---|---|---|
+| `@modelcontextprotocol/server-filesystem` | 14 | 0 | 0 | 0 | 0 |
+| `@modelcontextprotocol/server-memory` | 9 | 0 | 0 | 0 | 0 |
+| `@modelcontextprotocol/server-sequential-thinking` | 1 | 0 | 0 | 0 | 0 |
+| `@modelcontextprotocol/server-fetch` | 0 | 0 | 0 | 0 | 0 |
+| `@modelcontextprotocol/server-puppeteer` | 0 | 0 | 0 | 0 | 0 |
+| `@modelcontextprotocol/server-pdf` | 0 | 0 | 0 | 0 | 0 |
+| `@modelcontextprotocol/server-everything` | 0 | 0 | 0 | 0 | 0 |
+| `mcp-server-commands` | 1 | 0 | 0 | 0 | 0 |
+| `@wonderwhy-er/desktop-commander` | 0 | 0 | 0 | 0 | 0 |
+| `mcp-shell-server` | 1 | 0 | 0 | 0 | 0 |
+| `mcp-server-sqlite` | 0 | 0 | 0 | 0 | 0 |
+| `mcp-filesystem-server` | 13 | 0 | 0 | 0 | 0 |
+| `@kazuph/mcp-taskmanager` | 10 | 0 | **2** | 0 | 0 |
+| `mcp-server-code-runner` | — | failed to connect | | | |
+| `mcp-server-chart` | — | failed to connect | | | |
+
+**2 real findings** in `@kazuph/mcp-taskmanager`:
+
+```
+[HIGH] Description poisoning — approve_task_completion
+  Evidence: "...the user must call this tool to approve that the task is genuinely done..."
+  Module: description_poison (forced execution pattern)
+
+[HIGH] Description poisoning — approve_request_completion
+  Evidence: "...The user must call this to confirm that the request is fully complete..."
+  Module: description_poison (forced execution pattern)
+```
+
+Both tools use "must call this" language in their descriptions — a legitimate human-in-the-loop design, but also phrasing that could coerce an LLM agent into calling the tool without genuine user intent.
+
 ### Run everything
 
 ```bash
