@@ -51,11 +51,11 @@ Crafts malicious argument values for each tool's parameters — path traversal (
 
 ---
 
-## Static vs Live modules
+## Static vs Dynamic modules
 
 MCPScanner has two operating modes. Most users only need the static mode.
 
-| | Static modules | Live probe (`--live`) |
+| | Static modules | Dynamic modules (`--live`) |
 |---|---|---|
 | **What it does** | Pattern-matches tool schemas for known attack patterns | Fires a real LLM at your server with adversarial prompts |
 | **Speed** | Instant | Seconds per prompt |
@@ -68,13 +68,13 @@ MCPScanner has two operating modes. Most users only need the static mode.
 mcpscan --target ./claude_desktop_config.json
 ```
 
-**Live probe — API key required:**
+**Dynamic probe — API key required:**
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 mcpscan --target http://localhost:8000 --live
 ```
 
-The live probe uses one LLM as the attacker and a second as the judge. The attacker tries to coerce unsafe tool calls; the judge scores whether anything dangerous happened.
+The dynamic modules use one LLM as the attacker and a second as the judge. The attacker tries to coerce unsafe tool calls; the judge scores whether anything dangerous happened.
 
 ---
 
