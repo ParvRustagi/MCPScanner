@@ -5,6 +5,8 @@ from .scope_creep import ScopeCreepModule
 from .privilege_bleed import PrivilegeBleedModule
 from .tool_chain_abuse import ToolChainAbuseModule
 from .live_probe import LiveProbeModule
+from .multi_step_probe import MultiStepAttackProbe
+from .tool_argument_injection import ToolArgumentInjectionProbe
 
 ALL_STATIC_MODULES = [
     DescriptionPoisonModule,
@@ -14,6 +16,12 @@ ALL_STATIC_MODULES = [
     ToolChainAbuseModule,
 ]
 
+ALL_DYNAMIC_MODULES = [
+    LiveProbeModule,
+    MultiStepAttackProbe,
+    ToolArgumentInjectionProbe,
+]
+
 MODULE_REGISTRY: dict[str, type[BaseAttackModule]] = {
     "description_poison": DescriptionPoisonModule,
     "schema_injection": SchemaInjectionModule,
@@ -21,6 +29,8 @@ MODULE_REGISTRY: dict[str, type[BaseAttackModule]] = {
     "privilege_bleed": PrivilegeBleedModule,
     "tool_chain_abuse": ToolChainAbuseModule,
     "live_probe": LiveProbeModule,
+    "multi_step_probe": MultiStepAttackProbe,
+    "tool_argument_injection": ToolArgumentInjectionProbe,
 }
 
 __all__ = [
@@ -31,6 +41,9 @@ __all__ = [
     "PrivilegeBleedModule",
     "ToolChainAbuseModule",
     "LiveProbeModule",
+    "MultiStepAttackProbe",
+    "ToolArgumentInjectionProbe",
     "ALL_STATIC_MODULES",
+    "ALL_DYNAMIC_MODULES",
     "MODULE_REGISTRY",
 ]

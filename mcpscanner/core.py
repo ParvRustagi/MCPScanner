@@ -9,8 +9,11 @@ from .ingestion import ConfigFileIngester, LiveServerIngester
 from .modules import (
     BaseAttackModule,
     ALL_STATIC_MODULES,
+    ALL_DYNAMIC_MODULES,
     MODULE_REGISTRY,
     LiveProbeModule,
+    MultiStepAttackProbe,
+    ToolArgumentInjectionProbe,
 )
 
 
@@ -37,6 +40,8 @@ class MCPScanner:
             self._modules = [cls() for cls in ALL_STATIC_MODULES]
             if live:
                 self._modules.append(LiveProbeModule(attacker_model=attacker_model, provider=attacker_provider))
+                self._modules.append(MultiStepAttackProbe(attacker_model=attacker_model, provider=attacker_provider))
+                self._modules.append(ToolArgumentInjectionProbe(attacker_model=attacker_model, provider=attacker_provider))
 
     def run(self) -> Report:
         tools = asyncio.run(self._ingest())

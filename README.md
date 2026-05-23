@@ -43,6 +43,12 @@ Audits the permissions each MCP server requests against what it actually needs. 
 ### Live attacker LLM probe
 Fires a live attacker LLM at your running MCP server with adversarial prompts designed to coerce unsafe tool calls. A judge LLM evaluates each result and scores the finding.
 
+### Multi-step attack probe
+Runs multi-turn escalation conversations against a live server. Turn 1 scouts capabilities, Turn 2 narrows the target, Turn 3+ executes. Tests whether an LLM can be gradually walked into a full attack chain across a conversation — something single-turn probes miss entirely. Includes 5 scenarios: credential exfiltration, env recon, recon-read-destroy, privilege escalation, and data exfil via storage.
+
+### Tool argument injection probe
+Crafts malicious argument values for each tool's parameters — path traversal (`../../../../etc/passwd`), command injection (`;cat /etc/passwd`), SSRF (`http://169.254.169.254/`), SQL injection (`' OR 1=1`), and template injection (`{{7*7}}`). Checks whether the LLM uses the injected values when asked, testing the argument surface rather than the prompt surface.
+
 ---
 
 ## Static vs Live modules
@@ -54,7 +60,7 @@ MCPScanner has two operating modes. Most users only need the static mode.
 | **What it does** | Pattern-matches tool schemas for known attack patterns | Fires a real LLM at your server with adversarial prompts |
 | **Speed** | Instant | Seconds per prompt |
 | **API key required** | No | Yes |
-| **Modules** | description_poison, schema_injection, scope_creep, privilege_bleed, tool_chain_abuse | live_probe |
+| **Modules** | description_poison, schema_injection, scope_creep, privilege_bleed, tool_chain_abuse | live_probe, multi_step_probe, tool_argument_injection |
 | **Good for** | Pre-commit hooks, CI/CD, quick audits | Deeper validation of a running server |
 
 **Static scan — no key needed:**
@@ -395,6 +401,8 @@ flowchart TB
         M4["🔀 PrivilegeBleed\ncross-server graph analysis\nstatic · no LLM"]
         M5["⛓️ ToolChainAbuse\ncapability chain detection\nstatic · no LLM"]
         M6["🤖 LiveProbe\nattacker LLM + judge LLM\ndynamic · API key required"]
+        M7["🔁 MultiStepProbe\nmulti-turn escalation\ndynamic · API key required"]
+        M8["💣 ArgumentInjection\npath·cmd·SSRF·SQL·template\ndynamic · API key required"]
     end
 
     subgraph FINDINGS["⑤ Findings"]
@@ -415,8 +423,8 @@ flowchart TB
     A2 --> B2
     B1 -->|"tools/list\nJSON-RPC"| C
     B2 -->|"tools/list\nJSON-RPC"| C
-    C --> M1 & M2 & M3 & M4 & M5 & M6
-    M1 & M2 & M3 & M4 & M5 & M6 --> F
+    C --> M1 & M2 & M3 & M4 & M5 & M6 & M7 & M8
+    M1 & M2 & M3 & M4 & M5 & M6 & M7 & M8 --> F
     F --> O1 & O2 & O3 & O4
     F --> CI
     CI -->|"no findings\nabove threshold"| PASS
@@ -425,7 +433,10 @@ flowchart TB
 
 **Static modules** (description_poison, schema_injection, scope_creep, privilege_bleed, tool_chain_abuse) are deterministic — no LLM, no API key, runs in under 3 seconds. Suitable for pre-commit hooks and CI pipelines.
 
-**Live probe** fires a real attacker LLM at the running server with adversarial prompts, then uses a separate judge LLM to score whether unsafe tool calls were made. Requires an API key and a live server.
+**Dynamic modules** (`--live`) fire real LLMs against a running server and require an API key:
+- **live_probe** — single-turn adversarial prompts, judge scores each result
+- **multi_step_probe** — multi-turn escalation conversations across 5 attack scenarios
+- **tool_argument_injection** — crafts malicious argument values (path traversal, command injection, SSRF, SQL, template injection) per tool parameter
 
 ---
 
