@@ -371,31 +371,61 @@ GitHub Actions example:
 
 ## How it works
 
-```
-Config / live server
-       │
-       ▼
-  Ingestion & normalizer
-  (ToolSchema objects)
-       │
-       ▼
-  Attack modules ──────────────────────────────────────────────┐
-  ├── Description poisoning  (static)                          │
-  ├── Schema injection        (static)                         │
-  ├── Scope creep audit       (static)                         │
-  ├── Privilege bleed         (static + graph analysis)        │
-  ├── Tool chain abuse        (static + chain analysis)        │
-  └── Live attacker LLM probe (dynamic)                        │
-                                                               │
-       ▼                                                        │
-  Verdict engine ◄───────────────────────────────────────────-─┘
-  (judge LLM + severity scoring + false-positive suppression)
-       │
-       ▼
-  Report (JSON / Markdown / SARIF)
+```mermaid
+flowchart TB
+    subgraph INPUT["① Input"]
+        A1["📄 config.json\nClaude Desktop · Cursor · Windsurf"]
+        A2["🌐 http://localhost:8000\nLive MCP server"]
+    end
+
+    subgraph INGEST["② Ingestion"]
+        B1["ConfigFileIngester\nspawns stdio subprocess\nspeaks MCP JSON-RPC protocol"]
+        B2["LiveServerIngester\nHTTP POST JSON-RPC"]
+    end
+
+    subgraph NORM["③ Normalizer"]
+        C["ToolSchema objects\nname · description · parameters · permissions"]
+    end
+
+    subgraph MODULES["④ Attack Modules"]
+        direction LR
+        M1["🔍 DescriptionPoison\nregex on tool descriptions\nstatic · no LLM"]
+        M2["💉 SchemaInjection\nregex on params & enums\nstatic · no LLM"]
+        M3["📊 ScopeCreep\npermission vs. tool audit\nstatic · no LLM"]
+        M4["🔀 PrivilegeBleed\ncross-server graph analysis\nstatic · no LLM"]
+        M5["⛓️ ToolChainAbuse\ncapability chain detection\nstatic · no LLM"]
+        M6["🤖 LiveProbe\nattacker LLM + judge LLM\ndynamic · API key required"]
+    end
+
+    subgraph FINDINGS["⑤ Findings"]
+        F["Finding objects\nseverity · module · evidence · recommendation · confidence"]
+    end
+
+    subgraph OUTPUT["⑥ Output"]
+        O1["📋 Terminal\nrich table + detail"]
+        O2["📄 JSON"]
+        O3["📝 Markdown"]
+        O4["🔬 SARIF\nGitHub Code Scanning"]
+        CI{"--fail-on\nthreshold"}
+        PASS["✅ exit 0\nCI passes"]
+        FAIL["❌ exit 1\nCI blocked"]
+    end
+
+    A1 --> B1
+    A2 --> B2
+    B1 -->|"tools/list\nJSON-RPC"| C
+    B2 -->|"tools/list\nJSON-RPC"| C
+    C --> M1 & M2 & M3 & M4 & M5 & M6
+    M1 & M2 & M3 & M4 & M5 & M6 --> F
+    F --> O1 & O2 & O3 & O4
+    F --> CI
+    CI -->|"no findings\nabove threshold"| PASS
+    CI -->|"findings found"| FAIL
 ```
 
-Static modules (description poisoning, schema injection, scope creep, privilege bleed, tool chain abuse) are deterministic — no LLM required, fast, and suitable for pre-commit hooks. The live probe module fires a real attacker LLM and uses a separate judge LLM to evaluate results.
+**Static modules** (description_poison, schema_injection, scope_creep, privilege_bleed, tool_chain_abuse) are deterministic — no LLM, no API key, runs in under 3 seconds. Suitable for pre-commit hooks and CI pipelines.
+
+**Live probe** fires a real attacker LLM at the running server with adversarial prompts, then uses a separate judge LLM to score whether unsafe tool calls were made. Requires an API key and a live server.
 
 ---
 
