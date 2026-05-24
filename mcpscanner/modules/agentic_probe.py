@@ -17,6 +17,10 @@ from ..agent import (
     AnthropicLLM,
     LLMClient,
     SimulatedBackend,
+    LiveExecutionBackend,
+    CapabilityGate,
+    MCPConnector,
+    build_connector,
     DEFAULT_GOALS,
     GOALS_BY_NAME,
     Goal,
@@ -34,18 +38,20 @@ class AgenticAttackProbe(BaseAttackModule):
         attacker_model: str = "claude-sonnet-4-6",
         provider: str = "anthropic",
         target: str | None = None,
-        backend: str = "simulated",
+        allow_execution: bool = False,
         max_steps: int = 6,
         goals: list[str] | None = None,
         llm: LLMClient | None = None,
+        connector: MCPConnector | None = None,
     ) -> None:
         self.attacker_model = attacker_model
         self.provider = provider
         self.target = target
-        self.backend = backend
+        self.allow_execution = allow_execution
         self.max_steps = max_steps
         self._goals = _resolve_goals(goals)
         self._llm = llm  # injectable for tests
+        self._connector = connector  # injectable for tests
 
     def run(self, schemas: list[ToolSchema]) -> list[Finding]:
         if not schemas:
@@ -55,8 +61,7 @@ class AgenticAttackProbe(BaseAttackModule):
         if llm is None:
             return []  # missing key / package — already warned
 
-        if self.backend == "live":
-            print("[warn] agentic_probe: live backend is Phase 2 — using simulated backend")
+        connector = self._resolve_connector()  # None unless live execution is on
 
         tools_by_server: dict[str, list[ToolSchema]] = {}
         for t in schemas:
@@ -65,14 +70,43 @@ class AgenticAttackProbe(BaseAttackModule):
         findings: list[Finding] = []
         for server, server_tools in tools_by_server.items():
             for goal in self._goals:
-                # Fresh backend per goal so simulator state doesn't bleed across runs.
-                sim = SimulatedBackend(llm, server_tools)
-                agent = AttackAgent(llm, server_tools, sim, max_steps=self.max_steps)
-                traj = agent.pursue(goal, server)
+                backend, client = self._make_backend(llm, connector, server, server_tools)
+                try:
+                    agent = AttackAgent(llm, server_tools, backend, max_steps=self.max_steps)
+                    traj = agent.pursue(goal, server)
+                finally:
+                    if client is not None:
+                        client.close()
                 result = judge_trajectory(llm, traj)
                 if result and result.get("unsafe_behavior_detected"):
                     findings.append(_to_finding(server, goal, traj, result))
         return findings
+
+    def _resolve_connector(self) -> MCPConnector | None:
+        if not self.allow_execution:
+            return None
+        if self._connector is not None:
+            return self._connector
+        if not self.target:
+            print("[warn] agentic_probe: --allow-execution needs a target — using simulated backend")
+            return None
+        try:
+            return build_connector(self.target)
+        except Exception as e:
+            print(f"[warn] agentic_probe: could not build live connector ({e}) — using simulated backend")
+            return None
+
+    def _make_backend(self, llm, connector, server, server_tools):
+        """Returns (backend, client). client is non-None only for live execution
+        (so the caller closes the session). Falls back to simulated on connect failure."""
+        if connector is not None:
+            try:
+                client = connector.connect(server)
+                return LiveExecutionBackend(client, server_tools, CapabilityGate()), client
+            except Exception as e:
+                print(f"[warn] agentic_probe: live connect to '{server}' failed ({e}) — simulating")
+        # Fresh simulator per goal so its state doesn't bleed across runs.
+        return SimulatedBackend(llm, server_tools), None
 
 
 def _resolve_goals(names: list[str] | None) -> list[Goal]:

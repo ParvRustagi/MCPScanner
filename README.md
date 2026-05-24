@@ -115,7 +115,7 @@ What makes it an agent and not a script: it chooses its own actions, gets **real
 | Backend | Flag | Behavior |
 |---|---|---|
 | **Simulated** (default) | `--agentic` | A simulator LLM role-plays the MCP server, returning realistic, stateful *fake* data. Nothing real is executed — safe to run against a static config, no live server needed. |
-| **Live, gated execution** | *Phase 2 (planned)* | Actually calls the server's tools behind a read-only allowlist; destructive/exfil tools are hard-blocked. Opt-in via `--allow-execution`. |
+| **Live, gated execution** | `--agentic --allow-execution` | Actually calls the server's tools behind a safety gate. Read/enumerate calls reach the server; execute/destroy/exfiltrate/credential tools and reads of sensitive paths are blocked. |
 
 Tune the run with `--max-steps N` (observe-act budget per goal). The probe ships 5 goals — credential exfil, env recon, recon-read-destroy, privilege escalation, and data exfil via storage — and lets the agent plan the path to each.
 
@@ -123,6 +123,37 @@ Tune the run with `--max-steps N` (observe-act budget per goal). The probe ships
 # longer reasoning budget per goal
 mcpscan --target ./config.json --agentic --max-steps 10
 ```
+
+### Live execution (`--allow-execution`)
+
+By default the agent's tool calls hit the simulator. With `--allow-execution` they hit the **real server** — higher fidelity, but every call first passes a two-layer safety gate:
+
+```
+agent proposes a tool call
+        │
+        ▼
+  ┌─────────────────────────────────────────────┐
+  │ 1. capability check                          │
+  │    EXECUTE / DESTROY / EXFILTRATE / CRED  → BLOCK
+  │ 2. argument path screening (read/enumerate)  │
+  │    .ssh · .aws · .env · credentials · …   → BLOCK
+  └─────────────────────────────────────────────┘
+        │ allowed (read/enumerate, safe path)
+        ▼
+   real tools/call on the server
+```
+
+Blocked calls are never sent to the server — they're returned to the agent as `[blocked by MCPScanner: …]` so it can adapt, and recorded as blocked in the trajectory. The two layers together mean **destructive actions never run and real secrets never enter the LLM context**.
+
+```bash
+# real, gated execution against a running server
+mcpscan --target http://localhost:8000 --agentic --allow-execution
+
+# also works against stdio servers from a config file
+mcpscan --target ./claude_desktop_config.json --agentic --allow-execution
+```
+
+Only use `--allow-execution` against servers you own or are authorized to test. Despite the gate, real read/enumerate calls do run against the live server.
 
 ---
 
@@ -486,7 +517,7 @@ flowchart TB
 - **live_probe** (`--live`) — single-turn adversarial prompts, judge scores each result
 - **multi_step_probe** (`--live`) — multi-turn escalation conversations across 5 attack scenarios
 - **tool_argument_injection** (`--live`) — crafts malicious argument values (path traversal, command injection, SSRF, SQL, template injection) per tool parameter
-- **agentic_probe** (`--agentic`) — an autonomous attacker agent in an observe-act loop against a goal; simulated server by default, so it's safe to run on a static config. See [Agentic mode](#agentic-mode).
+- **agentic_probe** (`--agentic`) — an autonomous attacker agent in an observe-act loop against a goal; simulated server by default (safe on a static config), or real gated execution with `--allow-execution`. See [Agentic mode](#agentic-mode).
 
 ---
 
