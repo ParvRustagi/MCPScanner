@@ -162,7 +162,7 @@ Only use `--allow-execution` against servers you own or are authorized to test. 
 ### From PyPI
 
 ```bash
-pip install mcpscanner
+pip install mcpscan
 ```
 
 ### From source
