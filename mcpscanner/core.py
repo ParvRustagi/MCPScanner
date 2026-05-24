@@ -14,6 +14,7 @@ from .modules import (
     LiveProbeModule,
     MultiStepAttackProbe,
     ToolArgumentInjectionProbe,
+    AgenticAttackProbe,
 )
 
 
@@ -23,14 +24,18 @@ class MCPScanner:
         target: str,
         modules: Optional[list[BaseAttackModule]] = None,
         live: bool = False,
+        agentic: bool = False,
         attacker_provider: str = "anthropic",
         attacker_model: str = "claude-sonnet-4-6",
+        max_steps: int = 6,
         module_names: Optional[list[str]] = None,
     ) -> None:
         self.target = target
         self.live = live
+        self.agentic = agentic
         self.attacker_provider = attacker_provider
         self.attacker_model = attacker_model
+        self.max_steps = max_steps
 
         if modules is not None:
             self._modules = modules
@@ -42,6 +47,13 @@ class MCPScanner:
                 self._modules.append(LiveProbeModule(attacker_model=attacker_model, provider=attacker_provider))
                 self._modules.append(MultiStepAttackProbe(attacker_model=attacker_model, provider=attacker_provider))
                 self._modules.append(ToolArgumentInjectionProbe(attacker_model=attacker_model, provider=attacker_provider))
+            if agentic:
+                self._modules.append(AgenticAttackProbe(
+                    attacker_model=attacker_model,
+                    provider=attacker_provider,
+                    target=target,
+                    max_steps=max_steps,
+                ))
 
     def run(self) -> Report:
         tools = asyncio.run(self._ingest())

@@ -7,6 +7,7 @@ from .tool_chain_abuse import ToolChainAbuseModule
 from .live_probe import LiveProbeModule
 from .multi_step_probe import MultiStepAttackProbe
 from .tool_argument_injection import ToolArgumentInjectionProbe
+from .agentic_probe import AgenticAttackProbe
 
 ALL_STATIC_MODULES = [
     DescriptionPoisonModule,
@@ -16,10 +17,16 @@ ALL_STATIC_MODULES = [
     ToolChainAbuseModule,
 ]
 
+# Modules enabled by --live (single-turn / scripted dynamic probes).
 ALL_DYNAMIC_MODULES = [
     LiveProbeModule,
     MultiStepAttackProbe,
     ToolArgumentInjectionProbe,
+]
+
+# Agentic module is gated by its own --agentic flag (separate cost profile).
+ALL_AGENTIC_MODULES = [
+    AgenticAttackProbe,
 ]
 
 MODULE_REGISTRY: dict[str, type[BaseAttackModule]] = {
@@ -31,6 +38,7 @@ MODULE_REGISTRY: dict[str, type[BaseAttackModule]] = {
     "live_probe": LiveProbeModule,
     "multi_step_probe": MultiStepAttackProbe,
     "tool_argument_injection": ToolArgumentInjectionProbe,
+    "agentic_probe": AgenticAttackProbe,
 }
 
 __all__ = [
@@ -43,7 +51,9 @@ __all__ = [
     "LiveProbeModule",
     "MultiStepAttackProbe",
     "ToolArgumentInjectionProbe",
+    "AgenticAttackProbe",
     "ALL_STATIC_MODULES",
     "ALL_DYNAMIC_MODULES",
+    "ALL_AGENTIC_MODULES",
     "MODULE_REGISTRY",
 ]

@@ -26,9 +26,13 @@ SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 @click.version_option("0.1.0", "--version", "-V")
 @click.option("--target", "-t", required=True, help="Path to MCP config JSON or live server URL")
 @click.option("--live", "-l", is_flag=True, default=False, help="Enable live attacker LLM probe")
+@click.option("--agentic", "-a", is_flag=True, default=False,
+              help="Enable the agentic attack probe (autonomous attacker agent; simulated server by default)")
+@click.option("--max-steps", default=6, show_default=True, type=int,
+              help="Max observe-act steps per goal for the agentic probe")
 @click.option("--attacker", default="anthropic", show_default=True,
               type=click.Choice(["anthropic", "openai", "gemini", "ollama"], case_sensitive=False),
-              help="LLM provider for live probe")
+              help="LLM provider for live/agentic probes")
 @click.option("--modules", "-m", default=None,
               help="Comma-separated list of modules to run (default: all static)")
 @click.option("--output", "-o", default=None,
@@ -37,7 +41,7 @@ SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 @click.option("--fail-on", default=None, show_default=True,
               type=click.Choice(["critical", "high", "medium", "low"], case_sensitive=False),
               help="Exit with code 1 if any finding at or above this severity is found")
-def main(target: str, live: bool, attacker: str, modules: str | None, output: str | None, quiet: bool, fail_on: str | None) -> None:
+def main(target: str, live: bool, agentic: bool, max_steps: int, attacker: str, modules: str | None, output: str | None, quiet: bool, fail_on: str | None) -> None:
     """MCPScanner — agentic security scanner for MCP servers."""
     module_names: list[str] | None = None
     if modules:
@@ -52,6 +56,8 @@ def main(target: str, live: bool, attacker: str, modules: str | None, output: st
         console.print(f"\n[bold]MCPScanner[/bold] — scanning [cyan]{target}[/cyan]")
         if live:
             console.print(f"  Live probe enabled  (provider: {attacker})")
+        if agentic:
+            console.print(f"  Agentic probe enabled  (provider: {attacker}, max-steps: {max_steps})")
         if module_names:
             console.print(f"  Modules: {', '.join(module_names)}")
         console.print()
@@ -59,7 +65,9 @@ def main(target: str, live: bool, attacker: str, modules: str | None, output: st
     scanner = MCPScanner(
         target=target,
         live=live,
+        agentic=agentic,
         attacker_provider=attacker,
+        max_steps=max_steps,
         module_names=module_names,
     )
 

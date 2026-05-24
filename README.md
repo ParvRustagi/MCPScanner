@@ -49,6 +49,9 @@ Runs multi-turn escalation conversations against a live server. Turn 1 scouts ca
 ### Tool argument injection probe
 Crafts malicious argument values for each tool's parameters — path traversal (`../../../../etc/passwd`), command injection (`;cat /etc/passwd`), SSRF (`http://169.254.169.254/`), SQL injection (`' OR 1=1`), and template injection (`{{7*7}}`). Checks whether the LLM uses the injected values when asked, testing the argument surface rather than the prompt surface.
 
+### Agentic attack probe
+The other dynamic modules run *scripted* prompts. This one runs an actual **agent**: given only a goal (e.g. "find and exfiltrate any credentials"), an attacker LLM plans its own steps, calls tools, observes the results, and adapts the next move — looping until it succeeds, gives up, or hits a step limit. A judge LLM then scores the full trajectory. By default the tool calls hit a **simulated server** (a second LLM role-plays the MCP server with realistic, stateful fake data) so it's safe to run against a static config with zero blast radius. See [Agentic mode](#agentic-mode) below.
+
 ---
 
 ## Static vs Dynamic modules
@@ -60,8 +63,10 @@ MCPScanner has two operating modes. Most users only need the static mode.
 | **What it does** | Pattern-matches tool schemas for known attack patterns | Fires a real LLM at your server with adversarial prompts |
 | **Speed** | Instant | Seconds per prompt |
 | **API key required** | No | Yes |
-| **Modules** | description_poison, schema_injection, scope_creep, privilege_bleed, tool_chain_abuse | live_probe, multi_step_probe, tool_argument_injection |
+| **Modules** | description_poison, schema_injection, scope_creep, privilege_bleed, tool_chain_abuse | live_probe, multi_step_probe, tool_argument_injection, agentic_probe (`--agentic`) |
 | **Good for** | Pre-commit hooks, CI/CD, quick audits | Deeper validation of a running server |
+
+The agentic probe is the most powerful dynamic module and has its own flag (`--agentic`) — see [Agentic mode](#agentic-mode).
 
 **Static scan — no key needed:**
 ```bash
@@ -75,6 +80,49 @@ mcpscan --target http://localhost:8000 --live
 ```
 
 The dynamic modules use one LLM as the attacker and a second as the judge. The attacker tries to coerce unsafe tool calls; the judge scores whether anything dangerous happened.
+
+---
+
+## Agentic mode
+
+The static and (most) dynamic modules follow a fixed script — a list of patterns or a list of prompts. The **agentic probe** (`--agentic`) instead runs an autonomous attacker agent: you give it a *goal*, and it decides every step itself.
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+mcpscan --target ./claude_desktop_config.json --agentic
+```
+
+The loop:
+
+```
+goal ("exfiltrate any credentials")
+  │
+  ▼
+attacker LLM ── picks an action ──► tool call
+  ▲                                    │
+  │                                    ▼
+  └──── observes result ◄──── observation backend
+                                       │
+        (repeat until done / max-steps)│
+                                       ▼
+                              judge LLM scores the whole trajectory
+```
+
+What makes it an agent and not a script: it chooses its own actions, gets **real result feedback**, keeps memory across steps, and decides when to stop.
+
+**Observation backends** — where tool results come from:
+
+| Backend | Flag | Behavior |
+|---|---|---|
+| **Simulated** (default) | `--agentic` | A simulator LLM role-plays the MCP server, returning realistic, stateful *fake* data. Nothing real is executed — safe to run against a static config, no live server needed. |
+| **Live, gated execution** | *Phase 2 (planned)* | Actually calls the server's tools behind a read-only allowlist; destructive/exfil tools are hard-blocked. Opt-in via `--allow-execution`. |
+
+Tune the run with `--max-steps N` (observe-act budget per goal). The probe ships 5 goals — credential exfil, env recon, recon-read-destroy, privilege escalation, and data exfil via storage — and lets the agent plan the path to each.
+
+```bash
+# longer reasoning budget per goal
+mcpscan --target ./config.json --agentic --max-steps 10
+```
 
 ---
 
@@ -403,6 +451,7 @@ flowchart TB
         M6["🤖 LiveProbe\nattacker LLM + judge LLM\ndynamic · API key required"]
         M7["🔁 MultiStepProbe\nmulti-turn escalation\ndynamic · API key required"]
         M8["💣 ArgumentInjection\npath·cmd·SSRF·SQL·template\ndynamic · API key required"]
+        M9["🧠 AgenticProbe\nautonomous attacker agent\nobserve-act loop · --agentic"]
     end
 
     subgraph FINDINGS["⑤ Findings"]
@@ -423,8 +472,8 @@ flowchart TB
     A2 --> B2
     B1 -->|"tools/list\nJSON-RPC"| C
     B2 -->|"tools/list\nJSON-RPC"| C
-    C --> M1 & M2 & M3 & M4 & M5 & M6 & M7 & M8
-    M1 & M2 & M3 & M4 & M5 & M6 & M7 & M8 --> F
+    C --> M1 & M2 & M3 & M4 & M5 & M6 & M7 & M8 & M9
+    M1 & M2 & M3 & M4 & M5 & M6 & M7 & M8 & M9 --> F
     F --> O1 & O2 & O3 & O4
     F --> CI
     CI -->|"no findings\nabove threshold"| PASS
@@ -433,10 +482,11 @@ flowchart TB
 
 **Static modules** (description_poison, schema_injection, scope_creep, privilege_bleed, tool_chain_abuse) are deterministic — no LLM, no API key, runs in under 3 seconds. Suitable for pre-commit hooks and CI pipelines.
 
-**Dynamic modules** (`--live`) fire real LLMs against a running server and require an API key:
-- **live_probe** — single-turn adversarial prompts, judge scores each result
-- **multi_step_probe** — multi-turn escalation conversations across 5 attack scenarios
-- **tool_argument_injection** — crafts malicious argument values (path traversal, command injection, SSRF, SQL, template injection) per tool parameter
+**Dynamic modules** fire real LLMs and require an API key:
+- **live_probe** (`--live`) — single-turn adversarial prompts, judge scores each result
+- **multi_step_probe** (`--live`) — multi-turn escalation conversations across 5 attack scenarios
+- **tool_argument_injection** (`--live`) — crafts malicious argument values (path traversal, command injection, SSRF, SQL, template injection) per tool parameter
+- **agentic_probe** (`--agentic`) — an autonomous attacker agent in an observe-act loop against a goal; simulated server by default, so it's safe to run on a static config. See [Agentic mode](#agentic-mode).
 
 ---
 
