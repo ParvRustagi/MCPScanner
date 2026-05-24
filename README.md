@@ -159,19 +159,57 @@ Only use `--allow-execution` against servers you own or are authorized to test. 
 
 ## Installation
 
+### From PyPI
+
 ```bash
 pip install mcpscanner
 ```
 
-Or from source:
+### From source
 
 ```bash
+# 1. Clone the repo
 git clone https://github.com/ParvRustagi/MCPScanner
 cd MCPScanner
-pip install -e .
+
+# 2. (Recommended) create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+
+# 3. Install in editable mode, with dev extras for the test suite
+pip install -e ".[dev]"
+
+# 4. Confirm it's installed
+mcpscan --version
 ```
 
-Requires Python 3.10+. An API key for your attacker LLM provider is needed only for the `--live` probe module.
+Requires Python 3.10+. No API key is needed for static scans; an attacker-LLM key (e.g. `ANTHROPIC_API_KEY`) is only required for the dynamic probes (`--live`) and the agentic probe (`--agentic`).
+
+### Run your first scan (no API key, no config needed)
+
+The repo ships a deliberately poisoned config fixture, so you can see real findings immediately:
+
+```bash
+mcpscan --target tests/fixtures/config_poisoned.json
+```
+
+You should see several findings (description poisoning, dangerous tool chains, scope creep). Now point it at your own MCP config:
+
+```bash
+# macOS — Claude Desktop
+mcpscan --target ~/Library/Application\ Support/Claude/claude_desktop_config.json
+
+# Linux — Claude Desktop
+mcpscan --target ~/.config/Claude/claude_desktop_config.json
+```
+
+And confirm everything works end to end:
+
+```bash
+pytest -q
+```
+
+> **Authorized use only.** MCPScanner is a defensive tool. Only scan MCP servers you own or are explicitly authorized to test — and note that `--agentic --allow-execution` makes real (read-only, gated) tool calls against the target.
 
 ---
 
@@ -544,4 +582,4 @@ Contributions welcome. To add a new attack module:
 
 ## License
 
-MIT
+[MIT](LICENSE) © Parv Rustagi
