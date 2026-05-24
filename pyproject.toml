@@ -3,12 +3,37 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mcpscanner"
+name = "mcpscan"
 version = "0.1.0"
-description = "Agentic security scanner for Model Context Protocol servers"
+description = "Agentic security scanner for Model Context Protocol (MCP) servers"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
+authors = [{name = "Parv Rustagi"}]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "security",
+    "scanner",
+    "llm",
+    "ai-security",
+    "red-team",
+    "prompt-injection",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
     "anthropic>=0.40.0",
     "openai>=1.0.0",
@@ -19,6 +44,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[project.urls]
+Homepage = "https://github.com/ParvRustagi/MCPScanner"
+Repository = "https://github.com/ParvRustagi/MCPScanner"
+Issues = "https://github.com/ParvRustagi/MCPScanner/issues"
 
 [project.scripts]
 mcpscan = "mcpscanner.cli:main"
