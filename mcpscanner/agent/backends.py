@@ -12,6 +12,8 @@ from typing import Protocol
 
 from ..models import ToolResult, ToolSchema
 from .llm import LLMClient
+from .gate import CapabilityGate
+from .mcp_client import MCPClient
 
 
 class ObservationBackend(Protocol):
@@ -71,3 +73,43 @@ class SimulatedBackend:
         content = (resp.text or "").strip() or "[no output]"
         self._history.append({"role": "assistant", "content": content})
         return ToolResult(tool=tool, content=content)
+
+
+class LiveExecutionBackend:
+    """Executes tool calls against a REAL MCP server, behind a safety gate.
+
+    Every call is screened by the CapabilityGate first: execute/destroy/exfiltrate/
+    credential tools and reads of sensitive paths are blocked and never reach the
+    server. Blocked calls are returned to the agent as observations (so it can
+    adapt) and recorded as blocked in the trajectory.
+    """
+
+    def __init__(
+        self,
+        client: MCPClient,
+        tools: list[ToolSchema],
+        gate: CapabilityGate | None = None,
+        max_content: int = 4000,
+    ) -> None:
+        self.client = client
+        self.gate = gate or CapabilityGate()
+        self.max_content = max_content
+        self._by_name = {t.name: t for t in tools}
+
+    def execute(self, tool: str, args: dict) -> ToolResult:
+        schema = self._by_name.get(tool)
+        if schema is None:
+            return ToolResult(tool=tool, content=f"[unknown tool: {tool}]", is_error=True)
+
+        decision = self.gate.check(schema, args)
+        if not decision.allowed:
+            return ToolResult(
+                tool=tool,
+                content=f"[blocked by MCPScanner: {decision.reason}]",
+                blocked=True,
+            )
+
+        result = self.client.call_tool(tool, args)
+        if result.content and len(result.content) > self.max_content:
+            result.content = result.content[: self.max_content] + "…[truncated]"
+        return result

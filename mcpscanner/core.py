@@ -25,6 +25,7 @@ class MCPScanner:
         modules: Optional[list[BaseAttackModule]] = None,
         live: bool = False,
         agentic: bool = False,
+        allow_execution: bool = False,
         attacker_provider: str = "anthropic",
         attacker_model: str = "claude-sonnet-4-6",
         max_steps: int = 6,
@@ -33,6 +34,7 @@ class MCPScanner:
         self.target = target
         self.live = live
         self.agentic = agentic
+        self.allow_execution = allow_execution
         self.attacker_provider = attacker_provider
         self.attacker_model = attacker_model
         self.max_steps = max_steps
@@ -52,6 +54,7 @@ class MCPScanner:
                     attacker_model=attacker_model,
                     provider=attacker_provider,
                     target=target,
+                    allow_execution=allow_execution,
                     max_steps=max_steps,
                 ))
 

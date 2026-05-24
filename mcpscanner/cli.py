@@ -28,6 +28,8 @@ SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 @click.option("--live", "-l", is_flag=True, default=False, help="Enable live attacker LLM probe")
 @click.option("--agentic", "-a", is_flag=True, default=False,
               help="Enable the agentic attack probe (autonomous attacker agent; simulated server by default)")
+@click.option("--allow-execution", is_flag=True, default=False,
+              help="Agentic probe executes REAL tool calls behind a safety gate (read-only; destructive/exfil blocked). Requires --agentic.")
 @click.option("--max-steps", default=6, show_default=True, type=int,
               help="Max observe-act steps per goal for the agentic probe")
 @click.option("--attacker", default="anthropic", show_default=True,
@@ -41,7 +43,7 @@ SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 @click.option("--fail-on", default=None, show_default=True,
               type=click.Choice(["critical", "high", "medium", "low"], case_sensitive=False),
               help="Exit with code 1 if any finding at or above this severity is found")
-def main(target: str, live: bool, agentic: bool, max_steps: int, attacker: str, modules: str | None, output: str | None, quiet: bool, fail_on: str | None) -> None:
+def main(target: str, live: bool, agentic: bool, allow_execution: bool, max_steps: int, attacker: str, modules: str | None, output: str | None, quiet: bool, fail_on: str | None) -> None:
     """MCPScanner — agentic security scanner for MCP servers."""
     module_names: list[str] | None = None
     if modules:
@@ -57,15 +59,20 @@ def main(target: str, live: bool, agentic: bool, max_steps: int, attacker: str, 
         if live:
             console.print(f"  Live probe enabled  (provider: {attacker})")
         if agentic:
-            console.print(f"  Agentic probe enabled  (provider: {attacker}, max-steps: {max_steps})")
+            mode = "REAL execution (gated)" if allow_execution else "simulated server"
+            console.print(f"  Agentic probe enabled  (provider: {attacker}, max-steps: {max_steps}, backend: {mode})")
         if module_names:
             console.print(f"  Modules: {', '.join(module_names)}")
         console.print()
+
+    if allow_execution and not agentic:
+        console.print("[yellow]--allow-execution has no effect without --agentic; ignoring.[/yellow]")
 
     scanner = MCPScanner(
         target=target,
         live=live,
         agentic=agentic,
+        allow_execution=allow_execution,
         attacker_provider=attacker,
         max_steps=max_steps,
         module_names=module_names,
