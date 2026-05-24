@@ -24,6 +24,48 @@ class ToolSchema:
 
 
 @dataclass
+class ToolResult:
+    """The observation returned to the agent after a tool call (simulated or real)."""
+    tool: str
+    content: str
+    is_error: bool = False
+    blocked: bool = False  # True if a safety gate refused to run the call (live backend)
+
+
+@dataclass
+class AgentStep:
+    """A single observe-act step in an attack trajectory."""
+    index: int
+    thought: str  # assistant text accompanying the action this step
+    tool: str  # tool the agent called this step ("" if it produced only text)
+    args: dict = field(default_factory=dict)
+    observation: str = ""  # tool result content the agent observed
+    blocked: bool = False
+
+
+@dataclass
+class Trajectory:
+    """The full record of one agent's attempt to pursue a goal against a server."""
+    goal: str
+    server: str
+    objective: str = ""
+    steps: list[AgentStep] = field(default_factory=list)
+    stopped_reason: str = ""  # "agent_done" | "max_steps" | "error"
+
+    def transcript(self) -> str:
+        lines = [f"Goal: {self.goal} — {self.objective}"]
+        for s in self.steps:
+            if s.thought:
+                lines.append(f"Step {s.index} — Agent: {s.thought[:300]}")
+            if s.tool:
+                tag = " [BLOCKED]" if s.blocked else ""
+                lines.append(f"Step {s.index} — Action: {s.tool}({s.args}){tag}")
+                lines.append(f"Step {s.index} — Observation: {s.observation[:400]}")
+        lines.append(f"Stopped: {self.stopped_reason}")
+        return "\n".join(lines)
+
+
+@dataclass
 class Finding:
     severity: str  # critical / high / medium / low
     module: str
