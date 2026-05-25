@@ -15,6 +15,21 @@ pip install -e ".[dev]"
 python -m pytest tests/ -v
 ```
 
+## Releasing (maintainers)
+
+Releases publish to PyPI as [`mcpscan`](https://pypi.org/p/mcpscan) via GitHub
+Actions **Trusted Publishing** (OIDC) — no API tokens are stored anywhere.
+
+1. Bump `version` in `pyproject.toml` and commit to `main`.
+2. Create a GitHub Release with a tag like `v0.1.0`
+   (`gh release create v0.1.0 --generate-notes`).
+3. The `Publish to PyPI` workflow runs automatically: it tests, builds,
+   `twine check`s, and publishes to PyPI.
+
+One-time setup on PyPI (already done for the first release): add a Trusted
+Publisher under the project with owner `ParvRustagi`, repo `MCPScanner`,
+workflow `publish.yml`, environment `pypi`.
+
 ## Severity guidelines
 
 | Severity | When to use |
